@@ -10,7 +10,10 @@ import { useTranslation } from "react-i18next";
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  
+  // Robust check for Somali language
+  const isSomali = i18n.language.startsWith('so');
   
   // Cart Logic for Step 4 & 5
   const [cartCount, setCartCount] = useState(0);
@@ -23,16 +26,16 @@ const Navbar = () => {
   useEffect(() => {
     updateCount();
     window.addEventListener("cartUpdate", updateCount);
-    // Also update count when the URL changes (navigating back from cart)
     updateCount();
     return () => window.removeEventListener("cartUpdate", updateCount);
   }, [location]);
 
+  // Fixed navLinks to handle the Somali translation for Supplements
   const navLinks = [
     { label: t("nav.home"), to: "/" },
     { label: t("nav.about"), to: "/about" },
     { label: t("nav.medicines"), to: "/medicines" },
-    { label: "Supplements", to: "/supplements" },
+    { label: isSomali ? "Nafaqooyin" : "Supplements", to: "/supplements" },
     { label: t("nav.prescription"), to: "/prescription" },
     { label: t("nav.contact"), to: "/contact" },
   ];
@@ -75,7 +78,6 @@ const Navbar = () => {
         {/* Action Buttons & Cart */}
         <div className="flex items-center gap-2 sm:gap-3">
           
-          {/* !!! CLICKABLE CART ICON !!! */}
           <Link 
             to="/cart" 
             className={`relative p-2 transition-colors ${

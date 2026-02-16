@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import usePageMeta from "@/hooks/usePageMeta";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface CartItem {
   id: string;
@@ -14,6 +15,8 @@ interface CartItem {
 }
 
 const Cart = () => {
+  const { t, i18n } = useTranslation();
+  const isSomali = i18n.language === 'so';
   const { toast } = useToast();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [pickupLocation, setPickupLocation] = useState("");
@@ -23,8 +26,8 @@ const Cart = () => {
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "card">("mpesa");
 
   usePageMeta({
-    title: "Checkout — Amilax Pharmaceuticals",
-    description: "Adjust quantities and securely pay.",
+    title: isSomali ? "Lacag Bixinta — Amilax" : "Checkout — Amilax Pharmaceuticals",
+    description: isSomali ? "Hubi alaabtaada oo si ammaan ah u bixi lacagta." : "Adjust quantities and securely pay.",
   });
 
   useEffect(() => {
@@ -36,7 +39,6 @@ const Cart = () => {
 
   const total = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-  // UPDATED: Sync changes to LocalStorage and Navbar
   const syncCart = (updatedItems: CartItem[]) => {
     setCartItems(updatedItems);
     localStorage.setItem("amilax_cart_data", JSON.stringify(updatedItems));
@@ -45,7 +47,6 @@ const Cart = () => {
     window.dispatchEvent(new Event("cartUpdate"));
   };
 
-  // NEW: Increase/Decrease Quantity Logic
   const updateQuantity = (id: string, delta: number) => {
     const updated = cartItems.map(item => {
       if (item.id === id) {
@@ -53,7 +54,7 @@ const Cart = () => {
         return { ...item, quantity: newQty };
       }
       return item;
-    }).filter(item => item.quantity > 0); // Automatically removes if qty hits 0
+    }).filter(item => item.quantity > 0);
     
     syncCart(updated);
   };
@@ -61,12 +62,19 @@ const Cart = () => {
   const removeItem = (id: string) => {
     const updated = cartItems.filter(item => item.id !== id);
     syncCart(updated);
-    toast({ title: "Removed", description: "Item removed from bag." });
+    toast({ 
+      title: isSomali ? "Waa laga saaray" : "Removed", 
+      description: isSomali ? "Alaabta waa laga saaray dambiisha." : "Item removed from bag." 
+    });
   };
 
   const handleProcessPayment = () => {
     if (!pickupLocation) {
-      toast({ title: "Location Required", description: "Please enter a pickup location.", variant: "destructive" });
+      toast({ 
+        title: isSomali ? "Goobta waa loo baahanyahay" : "Location Required", 
+        description: isSomali ? "Fadlan geli halka lagaugu keenayo." : "Please enter a pickup location.", 
+        variant: "destructive" 
+      });
       return;
     }
     if (paymentMethod === "card" && !showCardForm) {
@@ -88,11 +96,13 @@ const Cart = () => {
       <div className="pt-32 pb-20 text-center container max-w-md">
         <div className="bg-card p-8 rounded-3xl border shadow-xl animate-in zoom-in">
           <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h1 className="font-heading text-2xl mb-2">Order Confirmed!</h1>
+          <h1 className="font-heading text-2xl mb-2">{isSomali ? "Dalabka waa la xaqiijiyay!" : "Order Confirmed!"}</h1>
           <p className="text-muted-foreground mb-6">
-            Pickup ready at <strong>{pickupLocation}</strong>.
+            {isSomali ? "Alaabtaada waxay diyaar ku tahay" : "Pickup ready at"} <strong>{pickupLocation}</strong>.
           </p>
-          <Button asChild className="w-full"><Link to="/">Return to Home</Link></Button>
+          <Button asChild className="w-full">
+            <Link to="/">{isSomali ? "Ku noqo Bogga Hore" : "Return to Home"}</Link>
+          </Button>
         </div>
       </div>
     );
@@ -104,9 +114,13 @@ const Cart = () => {
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="sm" onClick={() => showCardForm ? setShowCardForm(false) : window.history.back()}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {showCardForm ? "Back to Methods" : "Continue Shopping"}
+            {showCardForm 
+              ? (isSomali ? "Ku noqo Qaababka" : "Back to Methods") 
+              : (isSomali ? "Sii wad adeegashada" : "Continue Shopping")}
           </Button>
-          <h1 className="font-heading text-3xl font-bold text-foreground">Checkout</h1>
+          <h1 className="font-heading text-3xl font-bold text-foreground">
+            {isSomali ? "Lacag Bixinta" : "Checkout"}
+          </h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -115,7 +129,8 @@ const Cart = () => {
               <>
                 <section className="bg-card p-6 rounded-2xl border shadow-sm">
                   <h2 className="font-heading text-xl mb-4 flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5 text-primary" /> Order Review
+                    <ShoppingBag className="w-5 h-5 text-primary" /> 
+                    {isSomali ? "Eegista Dalabka" : "Order Review"}
                   </h2>
                   <div className="space-y-4">
                     {cartItems.length > 0 ? cartItems.map((item) => (
@@ -125,7 +140,6 @@ const Cart = () => {
                           <p className="text-sm text-primary font-bold">KES {item.price.toLocaleString()}</p>
                         </div>
                         
-                        {/* QUANTITY CONTROLS */}
                         <div className="flex items-center gap-3 bg-secondary/50 rounded-lg p-1 mr-4">
                           <Button 
                             variant="ghost" 
@@ -156,17 +170,17 @@ const Cart = () => {
                         </Button>
                       </div>
                     )) : (
-                      <p className="text-muted-foreground py-4">Your bag is empty.</p>
+                      <p className="text-muted-foreground py-4">{isSomali ? "Dambiishaadu waa madhan tahay." : "Your bag is empty."}</p>
                     )}
                   </div>
                 </section>
 
                 <section className="bg-card p-6 rounded-2xl border shadow-sm">
                   <h2 className="font-heading text-xl mb-4 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-primary" /> Pickup Location
+                    <MapPin className="w-5 h-5 text-primary" /> {isSomali ? "Goobta Lagaugu Keenayo" : "Pickup Location"}
                   </h2>
                   <Input 
-                    placeholder="Enter area (e.g. Pangani, Westlands)" 
+                    placeholder={isSomali ? "Geli aagga (tusaale. Pangani, Westlands)" : "Enter area (e.g. Pangani, Westlands)"}
                     value={pickupLocation}
                     onChange={(e) => setPickupLocation(e.target.value)}
                     className="h-12"
@@ -176,12 +190,12 @@ const Cart = () => {
             ) : (
               <section className="bg-card p-8 rounded-2xl border shadow-md animate-in slide-in-from-right">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="font-heading text-xl font-bold">Card Payment</h2>
+                  <h2 className="font-heading text-xl font-bold">{isSomali ? "Bixinta Kaadhka" : "Card Payment"}</h2>
                   <Lock className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="space-y-4">
-                  <Input placeholder="Cardholder Name" className="h-12" />
-                  <Input placeholder="Card Number" className="h-12" />
+                  <Input placeholder={isSomali ? "Magaca Kaadhka" : "Cardholder Name"} className="h-12" />
+                  <Input placeholder={isSomali ? "Lambarka Kaadhka" : "Card Number"} className="h-12" />
                   <div className="grid grid-cols-2 gap-4">
                     <Input placeholder="MM / YY" className="h-12" />
                     <Input placeholder="CVV" className="h-12" />
@@ -193,7 +207,7 @@ const Cart = () => {
 
           <div className="lg:col-span-5">
             <div className="bg-card p-6 rounded-2xl border shadow-sm sticky top-24">
-              <h2 className="font-heading text-xl mb-6">Summary</h2>
+              <h2 className="font-heading text-xl mb-6">{isSomali ? "Faahfaahinta" : "Summary"}</h2>
               
               {!showCardForm && (
                 <div className="space-y-3 mb-6">
@@ -213,7 +227,7 @@ const Cart = () => {
                   >
                     <div className="flex items-center gap-3">
                       <CreditCard className="w-10 h-10 text-blue-600" />
-                      <span className="font-medium text-sm">Credit / Debit Card</span>
+                      <span className="font-medium text-sm">{isSomali ? "Kaadhka Bangiga" : "Credit / Debit Card"}</span>
                     </div>
                   </button>
                 </div>
@@ -221,11 +235,11 @@ const Cart = () => {
 
               <div className="space-y-2 mb-6 border-t pt-4">
                 <div className="flex justify-between text-muted-foreground text-sm">
-                  <span>Total Items</span>
+                  <span>{isSomali ? "Wadarta Alaabta" : "Total Items"}</span>
                   <span>{cartItems.reduce((acc, i) => acc + i.quantity, 0)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-2xl pt-2">
-                  <span>Pay Total</span>
+                  <span>{isSomali ? "Wadarta Lacagta" : "Pay Total"}</span>
                   <span className="text-primary">KES {total.toLocaleString()}</span>
                 </div>
               </div>
@@ -235,7 +249,13 @@ const Cart = () => {
                 disabled={isProcessing || cartItems.length === 0} 
                 onClick={handleProcessPayment}
               >
-                {isProcessing ? "Processing..." : showCardForm ? "Confirm Payment" : paymentMethod === "mpesa" ? "Pay via M-Pesa" : "Continue to Card"}
+                {isProcessing 
+                  ? (isSomali ? "Waa lagu guda jiraa..." : "Processing...") 
+                  : showCardForm 
+                    ? (isSomali ? "Xaqiiji Lacag Bixinta" : "Confirm Payment") 
+                    : paymentMethod === "mpesa" 
+                      ? (isSomali ? "Ku bixi M-Pesa" : "Pay via M-Pesa") 
+                      : (isSomali ? "Sii wad Kaadhka" : "Continue to Card")}
               </Button>
             </div>
           </div>

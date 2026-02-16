@@ -3,6 +3,7 @@
     "home": "Bogga Hore",
     "about": "Naga",
     "medicines": "Daawooyin",
+    "supplements": "Nafaqooyinka",
     "prescription": "Qoraalka Dhakhtarka",
     "contact": "Nala Soo Xiriir",
     "callUs": "Naga Soo Wac",
@@ -60,7 +61,21 @@
     "inStock": "Waa la Helaa",
     "disclaimer": "<strong>Ogow:</strong> Daawooyinka kore tusaalooyin kaliya ayay yihiin, lagamana yaabo inay muujiyaan kaydka hadda. Helitaanka, fadlan nala soo xiriir WhatsApp. Daawooyin qoraal dhakhtar u baahan waxaa kaliya la siin doonaa kadib markii farmashiyihii xaqiijiyo.",
     "cantFind": "Ma heli kartid waxaad u baahan tahay?",
-    "askAbout": "Ka Weydii Daawada"
+    "askAbout": "Ka Weydii Daawada",
+    "addToCart": "Ku dar gaadhiga"
+  },
+  "Supplements": {
+    "subtitle": "Ka sokow daawooyinka qoraal dhakhtar u baahan, waxaan sidoo kale haynaa qayb ballaaran oo ka kooban nafaqooyin iyo kaabsoosha caafimaadka.",
+    "title": "Nafaqooyinka & Kaabsoosha",
+    "description": "Ka baadho qaybta nafaqada si aad u hesho kaabsoosha caafimaadka, fiitamiinada, iyo waxyaabo kale oo badan. Haddii aadan hubin waxa aad u baahan tahay, farmasiyahanadeenna aqoonta leh ayaa diyaar u ah inay ku caawiyaan talooyin ku habboon baahiyahaaga gaarka ah.",
+    "browseSupplements": "Fiiri Nafaqooyinka"
+  },
+  "cart": {
+    "title": "Gaadhigaaga",
+    "empty": "Gaadhigaagu waa madhan yahay",
+    "total": "Warta Guud",
+    "checkout": "Sii wad lacag bixinta",
+    "remove": "Ka saar"
   },
   "about": {
     "subtitle": "Ku Saabsan Amilax Pharmaceuticals",
@@ -76,7 +91,7 @@
       "Farmasiyahano aqoon leh ayaa xaqiijiya qoraal kasta",
       "Daawooyin kaliya laga keeno qaybiyayaasha la ogol yahay",
       "Siinta daacadnimada leh iyo qiimo daah-furnaan",
-      "Asturnaanta bukaan-socodku had iyo jeer la ilaaliyaa",
+      "Asturnaanta bukaan-socodku had iyo jeer la ilaalaa",
       "Furan maalin walba, 9 subaxnimo ilaa habeen badh"
     ],
     "yearsOfService": "Sanado Adeeg",
@@ -185,10 +200,10 @@
     "whatsapp": "WhatsApp",
     "chatWithUs": "Nagala sheekeyso",
     "email": "Iimeelka",
-    "disclaimer": "Waxyeello",
+    "disclaimer": "Is-difaacid",
     "disclaimerText": "Daawo walba waxaa kaliya la siinayaa kadib markii farmashiyihi xaqiijiyo. Daawooyin qoraal dhakhtar u baahan qoraal sax ah ayaa loo baahan yahay. Is-daweyntu way dhaawacaysaa — had iyo jeer la tasho daryeel-bixiyahaaga caafimaadka.",
     "copyright": "© {{year}} Amilax Pharmaceuticals. Dhammaan xuquuqda way dhowran yihiin.",
-    "builtWith": "Built with OfliX"
+    "builtWith": "Waxaa dhisay OfliX"
   },
   "notFound": {
     "title": "Bogga Lama Helin",
