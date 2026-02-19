@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Order {
   id: string;
@@ -12,6 +14,13 @@ interface Order {
   status: string;
   notes: string;
   created_at: string;
+}
+
+interface OrderItem {
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,6 +38,7 @@ export default function AdminOrders() {
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearStatus, setClearStatus] = useState("delivered");
   const [clearing, setClearing] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -55,8 +65,6 @@ export default function AdminOrders() {
 
   const handleClearOrders = async () => {
     setClearing(true);
-
-    // First delete associated order_items
     const { data: matchingOrders } = await supabase
       .from("orders")
       .select("id")
@@ -71,6 +79,132 @@ export default function AdminOrders() {
     setClearing(false);
     setShowClearModal(false);
     fetchOrders();
+  };
+
+  const generateInvoice = async (order: Order) => {
+    setGeneratingInvoice(order.id);
+
+    // Fetch order items
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", order.id);
+
+    const orderItems = (items || []) as OrderItem[];
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header background
+    doc.setFillColor(13, 148, 136); // teal
+    doc.rect(0, 0, pageWidth, 40, "F");
+
+    // Company name
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Amilax Pharmaceuticals", 14, 18);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Quality Medicines, Honestly Dispensed.", 14, 27);
+    doc.text("amilaxpharma@gmail.com", 14, 34);
+
+    // Invoice title on right
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", pageWidth - 14, 22, { align: "right" });
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`#${order.id.slice(0, 8).toUpperCase()}`, pageWidth - 14, 31, { align: "right" });
+
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+
+    // Bill To section
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Bill To:", 14, 55);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(order.full_name, 14, 63);
+    if (order.phone) doc.text(`Phone: ${order.phone}`, 14, 70);
+    if (order.email) doc.text(`Email: ${order.email}`, 14, 77);
+    if (order.delivery_address) doc.text(`Address: ${order.delivery_address}`, 14, 84);
+
+    // Invoice details on right
+    doc.setFont("helvetica", "bold");
+    doc.text("Invoice Date:", pageWidth - 70, 55);
+    doc.setFont("helvetica", "normal");
+    doc.text(new Date(order.created_at).toLocaleDateString("en-KE", {
+      day: "numeric", month: "long", year: "numeric"
+    }), pageWidth - 14, 55, { align: "right" });
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Status:", pageWidth - 70, 63);
+    doc.setFont("helvetica", "normal");
+    doc.text(order.status.toUpperCase(), pageWidth - 14, 63, { align: "right" });
+
+    if (order.notes) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Payment:", pageWidth - 70, 71);
+      doc.setFont("helvetica", "normal");
+      const payMethod = order.notes.replace("Payment method: ", "").toUpperCase();
+      doc.text(payMethod, pageWidth - 14, 71, { align: "right" });
+    }
+
+    // Divider
+    doc.setDrawColor(13, 148, 136);
+    doc.setLineWidth(0.5);
+    doc.line(14, 93, pageWidth - 14, 93);
+
+    // Items table
+    autoTable(doc, {
+      startY: 98,
+      head: [["#", "Product", "Qty", "Unit Price (KES)", "Total (KES)"]],
+      body: orderItems.map((item, i) => [
+        i + 1,
+        item.product_name,
+        item.quantity,
+        item.unit_price?.toLocaleString(),
+        item.total_price?.toLocaleString(),
+      ]),
+      headStyles: {
+        fillColor: [13, 148, 136],
+        textColor: 255,
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      bodyStyles: { fontSize: 10 },
+      alternateRowStyles: { fillColor: [245, 250, 250] },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 20, halign: "center" },
+        3: { cellWidth: 35, halign: "right" },
+        4: { cellWidth: 35, halign: "right" },
+      },
+    });
+
+    // Total
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFillColor(245, 250, 250);
+    doc.rect(pageWidth - 80, finalY - 5, 66, 16, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("TOTAL:", pageWidth - 70, finalY + 5);
+    doc.setTextColor(13, 148, 136);
+    doc.text(`KES ${order.total_amount?.toLocaleString()}`, pageWidth - 14, finalY + 5, { align: "right" });
+
+    // Footer
+    doc.setTextColor(150, 150, 150);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Thank you for choosing Amilax Pharmaceuticals.", pageWidth / 2, finalY + 30, { align: "center" });
+    doc.text("This is a computer-generated invoice and does not require a signature.", pageWidth / 2, finalY + 37, { align: "center" });
+
+    doc.save(`Amilax-Invoice-${order.full_name.replace(/\s+/g, "-")}-${order.id.slice(0, 8)}.pdf`);
+    setGeneratingInvoice(null);
   };
 
   const countByStatus = (status: string) => orders.filter((o) => o.status === status).length;
@@ -99,13 +233,10 @@ export default function AdminOrders() {
         {/* Filter tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
           {["all", "pending", "confirmed", "delivered", "cancelled"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
+            <button key={s} onClick={() => setFilter(s)}
               className={`text-sm px-4 py-1.5 rounded-full capitalize border transition ${
                 filter === s ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 hover:bg-gray-50"
-              }`}
-            >
+              }`}>
               {s} {s !== "all" && `(${countByStatus(s)})`}
             </button>
           ))}
@@ -121,15 +252,19 @@ export default function AdminOrders() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="font-semibold text-gray-800">{order.full_name}</p>
-                    <p className="text-sm text-gray-500">{order.phone} {order.email ? `· ${order.email}` : ""}</p>
+                    <p className="text-sm text-gray-500">
+                      {order.phone} {order.email ? `· ${order.email}` : ""}
+                    </p>
                     <p className="text-sm text-gray-500">{order.delivery_address}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-teal-600">KES {order.total_amount?.toLocaleString()}</p>
                     <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-300">#{order.id.slice(0, 8).toUpperCase()}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>
                     {order.status}
                   </span>
@@ -143,6 +278,13 @@ export default function AdminOrders() {
                     <option value="delivered">Delivered</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                  <button
+                    onClick={() => generateInvoice(order)}
+                    disabled={generatingInvoice === order.id}
+                    className="text-xs border border-teal-200 text-teal-600 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition disabled:opacity-50 ml-auto"
+                  >
+                    {generatingInvoice === order.id ? "Generating..." : "🧾 Download Invoice"}
+                  </button>
                 </div>
                 {order.notes && <p className="text-xs text-gray-400 mt-2">Note: {order.notes}</p>}
               </div>
@@ -159,44 +301,31 @@ export default function AdminOrders() {
             <p className="text-sm text-gray-500 mb-5">
               This will permanently delete all orders with the selected status. This cannot be undone.
             </p>
-
             <div className="mb-5">
               <label className="text-sm font-medium text-gray-700 mb-2 block">Select status to clear</label>
               <div className="grid grid-cols-2 gap-2">
                 {["delivered", "cancelled", "confirmed", "pending"].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setClearStatus(s)}
+                  <button key={s} onClick={() => setClearStatus(s)}
                     className={`py-2.5 px-4 rounded-lg border text-sm capitalize transition ${
-                      clearStatus === s
-                        ? "border-red-400 bg-red-50 text-red-600 font-medium"
-                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
+                      clearStatus === s ? "border-red-400 bg-red-50 text-red-600 font-medium" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}>
                     {s} ({countByStatus(s)})
                   </button>
                 ))}
               </div>
             </div>
-
             {countByStatus(clearStatus) === 0 && (
               <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
                 No {clearStatus} orders to clear.
               </p>
             )}
-
             <div className="flex gap-3">
-              <button
-                onClick={handleClearOrders}
-                disabled={clearing || countByStatus(clearStatus) === 0}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50"
-              >
+              <button onClick={handleClearOrders} disabled={clearing || countByStatus(clearStatus) === 0}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50">
                 {clearing ? "Clearing..." : `Clear ${countByStatus(clearStatus)} ${clearStatus} orders`}
               </button>
-              <button
-                onClick={() => setShowClearModal(false)}
-                className="flex-1 border text-gray-600 py-2.5 rounded-lg text-sm hover:bg-gray-50"
-              >
+              <button onClick={() => setShowClearModal(false)}
+                className="flex-1 border text-gray-600 py-2.5 rounded-lg text-sm hover:bg-gray-50">
                 Cancel
               </button>
             </div>
