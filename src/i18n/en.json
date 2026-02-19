@@ -63,6 +63,45 @@
     "cantFind": "Can't find what you need?",
     "askAbout": "Ask About a Medicine"
   },
+  "supplements": {
+    "subtitle": "Our Supplements",
+    "title": "Supplements & Wellness",
+    "description": "High-quality vitamins and health boosters. Browse our selection and add to your cart.",
+    "searchPlaceholder": "Search vitamins, protein...",
+    "addToCart": "Add to Cart",
+    "inStock": "IN STOCK",
+    "onlyLeft_one": "ONLY {{count}} LEFT",
+    "onlyLeft_other": "ONLY {{count}} LEFT",
+    "savedToWishlist": "Saved to Wishlist ❤️",
+    "savedToWishlistDesc": "{{name}} is now in your favorites.",
+    "removedFromWishlist": "Removed from Wishlist",
+    "removedFromWishlistDesc": "{{name}} was removed from your favorites.",
+    "addedToBag": "Added to Bag ✅",
+    "addedToBagDesc": "{{name}} quantity updated in your cart.",
+    "disclaimer": "Supplements are retail products and do not require a prescription. For prescription medicines, please visit the Medicines section.",
+    "products": {
+      "vit-c-1": {
+        "description": "A powerful antioxidant formula to support immune defence, skin health, and energy metabolism. Buffered for gentle absorption — suitable for daily use without stomach discomfort.",
+        "benefits": ["Immune Support", "Antioxidant", "Skin Health"]
+      },
+      "vit-d-1": {
+        "description": "Essential for strong bones, a healthy immune system, and mood regulation. Each softgel provides the most bioavailable form of Vitamin D, dissolved in a carrier oil for optimal absorption.",
+        "benefits": ["Bone Health", "Mood Support", "Immune Boost"]
+      },
+      "mult-1": {
+        "description": "A comprehensive once-daily formula packed with 23 essential vitamins and minerals. Covers nutritional gaps and supports energy, focus, and overall vitality — perfect for busy lifestyles.",
+        "benefits": ["23 Nutrients", "Energy & Focus", "Once Daily"]
+      },
+      "prot-1": {
+        "description": "High-quality whey protein isolate with 27g of protein per serving and minimal fat and lactose. Ideal for post-workout recovery, muscle building, and high-protein diets. Mixes easily with water or milk.",
+        "benefits": ["27g Protein/Serving", "Low Lactose", "Muscle Recovery"]
+      },
+      "bcaa-1": {
+        "description": "Branched-Chain Amino Acids in a proven 2:1:1 ratio of Leucine, Isoleucine, and Valine. Reduces muscle soreness, speeds up recovery, and supports endurance during intense training sessions.",
+        "benefits": ["2:1:1 BCAA Ratio", "Reduces Soreness", "Endurance"]
+      }
+    }
+  },
   "about": {
     "subtitle": "About Amilax Pharmaceuticals",
     "title": "A Pharmacy Built on",

@@ -64,11 +64,44 @@
     "askAbout": "Ka Weydii Daawada",
     "addToCart": "Ku dar gaadhiga"
   },
-  "Supplements": {
-    "subtitle": "Ka sokow daawooyinka qoraal dhakhtar u baahan, waxaan sidoo kale haynaa qayb ballaaran oo ka kooban nafaqooyin iyo kaabsoosha caafimaadka.",
+  "supplements": {
+    "subtitle": "Nafaqooyinkeenna",
     "title": "Nafaqooyinka & Kaabsoosha",
-    "description": "Ka baadho qaybta nafaqada si aad u hesho kaabsoosha caafimaadka, fiitamiinada, iyo waxyaabo kale oo badan. Haddii aadan hubin waxa aad u baahan tahay, farmasiyahanadeenna aqoonta leh ayaa diyaar u ah inay ku caawiyaan talooyin ku habboon baahiyahaaga gaarka ah.",
-    "browseSupplements": "Fiiri Nafaqooyinka"
+    "description": "Fiitamiino tayo leh iyo kor u qaadayaasha caafimaadka. Baadho xulashadeena oo ku dar gaadhigaaga.",
+    "searchPlaceholder": "Raadi fiitamiinada...",
+    "addToCart": "Ku dar Gaadhiga",
+    "inStock": "WAA LA HELAYAA",
+    "onlyLeft_one": "WAXAA HARAY {{count}}",
+    "onlyLeft_other": "WAXAA HARAY {{count}}",
+    "savedToWishlist": "Waa la kaydiyay ❤️",
+    "savedToWishlistDesc": "{{name}} hadda waxay ku jirtaa kuwa aad jeceshahay.",
+    "removedFromWishlist": "Waa la tiriyay",
+    "removedFromWishlistDesc": "{{name}} waa laga saaray kuwa aad jeceshahay.",
+    "addedToBag": "Waa lagu daray ✅",
+    "addedToBagDesc": "{{name}} ayaa lagu daray gaadhigaaga.",
+    "disclaimer": "Nafaqooyinka waa alaab tafaariiq ah umana baahna qoraal dhakhtar. Wixii daawooyin qoraal ah, fadlan booqo qaybta Daawooyinka.",
+    "products": {
+      "vit-c-1": {
+        "description": "Qaanso xooggan oo ka hortagga unugyada waxyeellaynaya, caafimaadka maqaarka, iyo tamarta. Si fiican ayuu loogu diyaariyay si uu si sahlan ugu dhex galo jirka — ku habboon isticmaalka maalinlaha ah.",
+        "benefits": ["Taageerada Difaaca", "Kaabsoosha Unugyada", "Caafimaadka Maqaarka"]
+      },
+      "vit-d-1": {
+        "description": "Muhiim u ah lafaha xooggan, nidaamka difaaca caafimaadka, iyo xaaladda maskaxda. Kasta oo softgel ah wuxuu bixiyaa qaabka ugu wanaagsan ee Vitamin D, oo ku milmay saliid si loo hubiyo nuugista fiican.",
+        "benefits": ["Caafimaadka Lafaha", "Taageerada Maskaxda", "Xoojinta Difaaca"]
+      },
+      "mult-1": {
+        "description": "Qaanso dhammaystiran oo maalin hal mar la qaato oo ka kooban 23 fiitamiino iyo macdanno muhiim ah. Wuxuu daboolaa baahiyaha nafaqada wuxuuna taageeraa tamarta, xususta, iyo caafimaadka guud — ku habboon nolosha mashquulka ah.",
+        "benefits": ["23 Nafaqo", "Tamar & Xusuus", "Hal Mar Maalin"]
+      },
+      "prot-1": {
+        "description": "Protein wheey ah oo tayo sare leh oo 27g protein laga helo hal martabal, oo xoogaa dufan iyo caano ah leh. Ku habboon dib u soo kabashada xididdada ka dib jimicsiga, dhismaha muruqyada, iyo cuntooyinka protein badan.",
+        "benefits": ["27g Protein/Martabal", "Caano Yar", "Dib u Soo Kabashada Muruqyada"]
+      },
+      "bcaa-1": {
+        "description": "Amino Acids Laamood ee saamiga 2:1:1 ee Leucine, Isoleucine, iyo Valine. Wuxuu yaraynayaa xanuunka muruqyada, wuxuu degdegsiinayaa soo kabashada, wuxuuna taageeraa adkeysiga jimicsiga xooggan.",
+        "benefits": ["Saamiga BCAA 2:1:1", "Yaraynta Xanuunka", "Adkeysiga"]
+      }
+    }
   },
   "cart": {
     "title": "Gaadhigaaga",
