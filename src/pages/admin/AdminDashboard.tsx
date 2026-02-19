@@ -5,37 +5,9 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 
-interface StatCard {
-  label: string;
-  value: string | number;
-  sub?: string;
-  color: string;
-}
-
-interface RevenueData {
-  date: string;
-  revenue: number;
-}
-
-interface BestSeller {
-  product_name: string;
-  total_qty: number;
-  total_revenue: number;
-}
-
-interface LowStockProduct {
-  id: string;
-  name: string;
-  stock_count: number;
-  sku: string;
-}
-
-interface Order {
-  id: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-}
+interface RevenueData { date: string; revenue: number; }
+interface BestSeller { product_name: string; total_qty: number; total_revenue: number; }
+interface LowStockProduct { id: string; name: string; stock_count: number; sku: string; }
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -54,9 +26,7 @@ export default function AdminDashboard() {
     checkAuth();
   }, []);
 
-  useEffect(() => {
-    fetchAll();
-  }, [period]);
+  useEffect(() => { fetchAll(); }, [period]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -70,71 +40,46 @@ export default function AdminDashboard() {
       supabase.from("products").select("*", { count: "exact", head: true }),
       supabase.from("orders").select("total_amount, status"),
     ]);
-
-    const allOrders = (orders || []) as Order[];
-    const revenue = allOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-    const pending = allOrders.filter(o => o.status === "pending").length;
-    const delivered = allOrders.filter(o => o.status === "delivered").length;
-
+    const allOrders = orders || [];
+    const revenue = allOrders.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0);
     setStats({
-      categories: categories || 0,
-      products: products || 0,
-      orders: allOrders.length,
-      revenue,
-      pending,
-      delivered,
+      categories: categories || 0, products: products || 0,
+      orders: allOrders.length, revenue,
+      pending: allOrders.filter((o: any) => o.status === "pending").length,
+      delivered: allOrders.filter((o: any) => o.status === "delivered").length,
     });
   };
 
   const fetchRevenue = async () => {
-    const days = parseInt(period);
     const from = new Date();
-    from.setDate(from.getDate() - days);
-
-    const { data } = await supabase
-      .from("orders")
-      .select("total_amount, created_at")
-      .gte("created_at", from.toISOString())
-      .order("created_at");
-
-    // Group by date
+    from.setDate(from.getDate() - parseInt(period));
+    const { data } = await supabase.from("orders").select("total_amount, created_at")
+      .gte("created_at", from.toISOString()).order("created_at");
     const map: Record<string, number> = {};
     (data || []).forEach((o: any) => {
       const date = new Date(o.created_at).toLocaleDateString("en-KE", { month: "short", day: "numeric" });
       map[date] = (map[date] || 0) + (o.total_amount || 0);
     });
-
     setRevenueData(Object.entries(map).map(([date, revenue]) => ({ date, revenue })));
   };
 
   const fetchBestSellers = async () => {
-    const { data } = await supabase
-      .from("order_items")
-      .select("product_name, quantity, total_price");
-
+    const { data } = await supabase.from("order_items").select("product_name, quantity, total_price");
     const map: Record<string, { total_qty: number; total_revenue: number }> = {};
     (data || []).forEach((item: any) => {
       if (!map[item.product_name]) map[item.product_name] = { total_qty: 0, total_revenue: 0 };
       map[item.product_name].total_qty += item.quantity || 0;
       map[item.product_name].total_revenue += item.total_price || 0;
     });
-
-    const sorted = Object.entries(map)
-      .map(([product_name, vals]) => ({ product_name, ...vals }))
-      .sort((a, b) => b.total_qty - a.total_qty)
-      .slice(0, 5);
-
-    setBestSellers(sorted);
+    setBestSellers(
+      Object.entries(map).map(([product_name, vals]) => ({ product_name, ...vals }))
+        .sort((a, b) => b.total_qty - a.total_qty).slice(0, 5)
+    );
   };
 
   const fetchLowStock = async () => {
-    const { data } = await supabase
-      .from("products")
-      .select("id, name, stock_count, sku")
-      .lte("stock_count", 5)
-      .eq("is_active", true)
-      .order("stock_count");
-
+    const { data } = await supabase.from("products").select("id, name, stock_count, sku")
+      .lte("stock_count", 5).eq("is_active", true).order("stock_count");
     setLowStock(data || []);
   };
 
@@ -143,7 +88,7 @@ export default function AdminDashboard() {
     navigate("/admin");
   };
 
-  const statCards: StatCard[] = [
+  const statCards = [
     { label: "Total Revenue", value: `KES ${stats.revenue.toLocaleString()}`, color: "text-teal-600" },
     { label: "Total Orders", value: stats.orders, sub: `${stats.pending} pending`, color: "text-blue-600" },
     { label: "Delivered", value: stats.delivered, color: "text-green-600" },
@@ -152,7 +97,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Nav */}
       <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
@@ -160,9 +104,7 @@ export default function AdminDashboard() {
           </div>
           <span className="font-semibold text-gray-800">Amilax Admin</span>
         </div>
-        <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 font-medium">
-          Sign Out
-        </button>
+        <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 font-medium">Sign Out</button>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
@@ -171,7 +113,6 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
             <p className="text-gray-500 text-sm mt-1">Welcome back! Here's your store overview.</p>
           </div>
-          {/* Period selector */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             {(["7", "30", "90"] as const).map(p => (
               <button key={p} onClick={() => setPeriod(p)}
@@ -198,9 +139,7 @@ export default function AdminDashboard() {
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="font-semibold text-gray-800 mb-4">Revenue — Last {period} days</h2>
             {revenueData.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-                No revenue data yet
-              </div>
+              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">No revenue data yet</div>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={revenueData}>
@@ -220,13 +159,11 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {/* Low Stock Alerts */}
+          {/* Low Stock */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="font-semibold text-gray-800 mb-4">
               ⚠️ Low Stock
-              {lowStock.length > 0 && (
-                <span className="ml-2 text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">{lowStock.length}</span>
-              )}
+              {lowStock.length > 0 && <span className="ml-2 text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">{lowStock.length}</span>}
             </h2>
             {lowStock.length === 0 ? (
               <p className="text-sm text-gray-400">All products are well stocked!</p>
@@ -243,8 +180,7 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                 ))}
-                <button onClick={() => navigate("/admin/products")}
-                  className="text-xs text-teal-600 hover:underline mt-2 block">
+                <button onClick={() => navigate("/admin/products")} className="text-xs text-teal-600 hover:underline mt-2 block">
                   Manage products →
                 </button>
               </div>
@@ -270,9 +206,7 @@ export default function AdminDashboard() {
                       <p className="text-sm font-medium text-gray-800">{item.product_name}</p>
                       <p className="text-xs text-gray-400">{item.total_qty} units sold</p>
                     </div>
-                    <span className="text-sm font-semibold text-teal-600">
-                      KES {item.total_revenue.toLocaleString()}
-                    </span>
+                    <span className="text-sm font-semibold text-teal-600">KES {item.total_revenue.toLocaleString()}</span>
                   </div>
                 ))}
               </div>
@@ -287,6 +221,7 @@ export default function AdminDashboard() {
                 { label: "📂 Categories", path: "/admin/categories" },
                 { label: "💊 Products", path: "/admin/products" },
                 { label: "🛒 Orders", path: "/admin/orders" },
+                { label: "🖼️ Banners", path: "/admin/banners" },
                 { label: "⚙️ Settings", path: "/admin/settings" },
               ].map(action => (
                 <button key={action.path} onClick={() => navigate(action.path)}
