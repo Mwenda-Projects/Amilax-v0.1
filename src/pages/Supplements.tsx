@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, ShoppingCart, Heart, Info } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, ShoppingCart, Heart, Info, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,6 +11,7 @@ import { useTranslation } from "react-i18next";
 interface Product {
   id: string;
   name: string;
+  slug: string;
   description: string;
   price: number;
   stock_count: number;
@@ -23,18 +25,22 @@ interface Category {
   id: string;
   name: string;
   description: string;
-  icon: string;
   products: Product[];
 }
 
 const Supplements = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"default" | "price_asc" | "price_desc" | "name">("default");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   usePageMeta({
     title: t("supplements.title"),
@@ -66,16 +72,18 @@ const Supplements = () => {
     }));
 
     setCategories(grouped);
+    setAllProducts(products || []);
     setLoading(false);
   };
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
     const existingData = localStorage.getItem("amilax_cart_data");
     let cart = existingData ? JSON.parse(existingData) : [];
-    const existingItemIndex = cart.findIndex((item: any) => item.id === product.id);
+    const existingIndex = cart.findIndex((item: any) => item.id === product.id);
 
-    if (existingItemIndex > -1) {
-      cart[existingItemIndex].quantity += 1;
+    if (existingIndex > -1) {
+      cart[existingIndex].quantity += 1;
     } else {
       cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
     }
@@ -91,7 +99,8 @@ const Supplements = () => {
     });
   };
 
-  const handleWishlist = (productId: string, productName: string) => {
+  const handleWishlist = (productId: string, productName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setWishlist((prev) => {
       const isWishlisted = prev.includes(productId);
       toast({
@@ -104,16 +113,30 @@ const Supplements = () => {
     });
   };
 
-  const filtered = categories
-    .map((cat) => ({
+  // Apply sort and filter
+  const getSortedProducts = (products: Product[]) => {
+    let sorted = [...products];
+    if (sortBy === "price_asc") sorted.sort((a, b) => a.price - b.price);
+    else if (sortBy === "price_desc") sorted.sort((a, b) => b.price - a.price);
+    else if (sortBy === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    return sorted;
+  };
+
+  // Build display: filter by category and search, then sort
+  const displayCategories = categories
+    .filter(cat => filterCategory === "all" || cat.id === filterCategory)
+    .map(cat => ({
       ...cat,
-      products: cat.products.filter(
-        (p) =>
+      products: getSortedProducts(
+        cat.products.filter(p =>
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           cat.name.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
+        )
+      )
     }))
-    .filter((cat) => cat.products.length > 0);
+    .filter(cat => cat.products.length > 0);
+
+  const totalVisible = displayCategories.reduce((acc, cat) => acc + cat.products.length, 0);
 
   if (loading) {
     return (
@@ -149,18 +172,77 @@ const Supplements = () => {
         </div>
       </section>
 
+      {/* Sort & Filter Bar */}
+      <div className="border-b bg-background sticky top-16 z-10">
+        <div className="container py-3 flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{totalVisible}</span> products
+          </p>
+          <div className="flex items-center gap-2">
+            {/* Filter by category */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition ${
+                showFilters || filterCategory !== "all" ? "bg-primary text-white border-primary" : "hover:bg-secondary"
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filter
+              {filterCategory !== "all" && <span className="ml-1 bg-white text-primary text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">1</span>}
+            </button>
+
+            {/* Sort */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border hover:bg-secondary transition appearance-none pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="default">Sort: Default</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="name">Name: A-Z</option>
+              </select>
+              <ArrowUpDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* Category filter dropdown */}
+        {showFilters && (
+          <div className="container pb-3">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterCategory("all")}
+                className={`text-xs px-3 py-1.5 rounded-full border transition ${filterCategory === "all" ? "bg-primary text-white border-primary" : "hover:bg-secondary"}`}
+              >
+                All Categories
+              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setFilterCategory(cat.id)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition ${filterCategory === cat.id ? "bg-primary text-white border-primary" : "hover:bg-secondary"}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Products */}
       <section className="py-12">
         <div className="container">
-          {filtered.length === 0 && (
+          {displayCategories.length === 0 && (
             <p className="text-center text-muted-foreground text-sm py-20">
               No supplements found. Check back soon!
             </p>
           )}
 
-          {filtered.map((cat) => (
+          {displayCategories.map((cat) => (
             <div key={cat.id} className="mb-14">
-              {/* Category header */}
               <div className="flex items-center gap-2 mb-6 border-b pb-2">
                 <h2 className="font-heading text-xl">{cat.name}</h2>
                 {cat.description && (
@@ -168,14 +250,14 @@ const Supplements = () => {
                 )}
               </div>
 
-              {/* Product grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {cat.products.map((product) => {
                   const isWishlisted = wishlist.includes(product.id);
                   return (
                     <div
                       key={product.id}
-                      className="bg-card rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all group flex flex-col"
+                      onClick={() => product.slug && navigate(`/supplements/${product.slug}`)}
+                      className="bg-card rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all group flex flex-col cursor-pointer"
                     >
                       {/* Image */}
                       {product.image_url && (
@@ -186,7 +268,12 @@ const Supplements = () => {
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                             loading="lazy"
                           />
-                          <div className="absolute top-3 left-3">
+                          <div className="absolute top-3 left-3 flex flex-col gap-1">
+                            {product.is_featured && (
+                              <span className="text-[10px] bg-yellow-100 text-yellow-700 font-bold px-2 py-1 rounded shadow-sm">
+                                ⭐ Top Seller
+                              </span>
+                            )}
                             {product.stock_count <= 5 ? (
                               <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-2 py-1 rounded shadow-sm">
                                 Only {product.stock_count} left
@@ -210,13 +297,13 @@ const Supplements = () => {
                         </div>
 
                         {product.description && (
-                          <p className="text-sm text-muted-foreground leading-relaxed mb-3 flex-1">
+                          <p className="text-sm text-muted-foreground leading-relaxed mb-3 flex-1 line-clamp-2">
                             {product.description}
                           </p>
                         )}
 
                         {!product.image_url && (
-                          <div className="mb-4">
+                          <div className="mb-3">
                             {product.stock_count <= 5 ? (
                               <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-2 py-1 rounded">
                                 Only {product.stock_count} left
@@ -234,7 +321,7 @@ const Supplements = () => {
                           <Button
                             className="flex-1 gap-2 bg-primary hover:bg-foreground transition-colors"
                             variant="default"
-                            onClick={() => handleAddToCart(product)}
+                            onClick={(e) => handleAddToCart(product, e)}
                             disabled={!product.is_in_stock}
                           >
                             <ShoppingCart className="w-4 h-4" />
@@ -243,7 +330,7 @@ const Supplements = () => {
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => handleWishlist(product.id, product.name)}
+                            onClick={(e) => handleWishlist(product.id, product.name, e)}
                             className={`transition-colors ${
                               isWishlisted
                                 ? "text-destructive border-destructive bg-destructive/5"
@@ -253,6 +340,14 @@ const Supplements = () => {
                             <Heart className="w-4 h-4" fill={isWishlisted ? "currentColor" : "none"} />
                           </Button>
                         </div>
+
+                        {/* View Details */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); product.slug && navigate(`/supplements/${product.slug}`); }}
+                          className="text-xs text-primary hover:underline mt-2 text-center"
+                        >
+                          View Details →
+                        </button>
                       </div>
                     </div>
                   );
