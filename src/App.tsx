@@ -13,6 +13,8 @@ import Cart from "./pages/Cart";
 import Prescription from "./pages/Prescription";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
+import AccountLogin from "./pages/account/AccountLogin";
+import Account from "./pages/account/Account";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCategories from "./pages/admin/AdminCategories";
@@ -41,6 +43,9 @@ const App = () => (
             <Route path="/prescription" element={<Prescription />} />
             <Route path="/contact" element={<Contact />} />
           </Route>
+          {/* Customer account routes */}
+          <Route path="/account/login" element={<AccountLogin />} />
+          <Route path="/account" element={<Account />} />
           {/* Admin routes */}
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
