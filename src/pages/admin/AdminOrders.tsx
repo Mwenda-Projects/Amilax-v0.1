@@ -55,6 +55,7 @@ export default function AdminOrders() {
   const [clearStatus, setClearStatus] = useState("delivered");
   const [clearing, setClearing] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
+  const [newOrderAlert, setNewOrderAlert] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -63,6 +64,29 @@ export default function AdminOrders() {
     };
     checkAuth();
     fetchOrders();
+
+    // ── REALTIME SUBSCRIPTION ──
+    const channel = supabase
+      .channel("orders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            // New order — add to top and show alert
+            setOrders(prev => [payload.new as Order, ...prev]);
+            setNewOrderAlert(true);
+            setTimeout(() => setNewOrderAlert(false), 5000);
+          } else if (payload.eventType === "UPDATE") {
+            // Order updated — replace in list
+            setOrders(prev => prev.map(o => o.id === (payload.new as Order).id ? payload.new as Order : o));
+          } else if (payload.eventType === "DELETE") {
+            // Order deleted — remove from list
+            setOrders(prev => prev.filter(o => o.id !== (payload.old as Order).id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchOrders = async () => {
@@ -76,59 +100,39 @@ export default function AdminOrders() {
 
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("orders").update({ status }).eq("id", id);
-    // If delivered, also update tracking
     if (status === "delivered") {
       await supabase.from("orders").update({ tracking_status: "delivered" }).eq("id", id);
     }
-    fetchOrders();
   };
 
   const updateTracking = async (id: string, tracking_status: string) => {
     await supabase.from("orders").update({ tracking_status }).eq("id", id);
-    fetchOrders();
   };
 
-  // Auto-create or update customer profile when order is actioned
   const syncCustomer = async (order: Order) => {
     if (!order.phone) return;
     const { data: existing } = await supabase
-      .from("customers")
-      .select("id, total_spent, loyalty_points")
-      .eq("phone", order.phone)
-      .single();
-
+      .from("customers").select("id, total_spent, loyalty_points").eq("phone", order.phone).single();
     if (existing) {
-      // Update total spent
-      const { data: allOrders } = await supabase
-        .from("orders")
-        .select("total_amount")
-        .eq("phone", order.phone);
+      const { data: allOrders } = await supabase.from("orders").select("total_amount").eq("phone", order.phone);
       const total = (allOrders || []).reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0);
-      const points = Math.floor(total / 100); // 1 point per KES 100
+      const points = Math.floor(total / 100);
       await supabase.from("customers").update({
-        full_name: order.full_name,
-        email: order.email || existing.email,
-        total_spent: total,
-        loyalty_points: points,
-        updated_at: new Date().toISOString(),
+        full_name: order.full_name, email: order.email || null,
+        total_spent: total, loyalty_points: points, updated_at: new Date().toISOString(),
       }).eq("id", existing.id);
     } else {
-      // Create new customer
       const points = Math.floor((order.total_amount || 0) / 100);
       await supabase.from("customers").insert({
-        full_name: order.full_name,
-        phone: order.phone,
-        email: order.email || null,
-        total_spent: order.total_amount || 0,
-        loyalty_points: points,
+        full_name: order.full_name, phone: order.phone, email: order.email || null,
+        total_spent: order.total_amount || 0, loyalty_points: points,
       });
     }
   };
 
   const handleClearOrders = async () => {
     setClearing(true);
-    const { data: matchingOrders } = await supabase
-      .from("orders").select("id").eq("status", clearStatus);
+    const { data: matchingOrders } = await supabase.from("orders").select("id").eq("status", clearStatus);
     if (matchingOrders && matchingOrders.length > 0) {
       const ids = matchingOrders.map((o) => o.id);
       await supabase.from("order_items").delete().in("order_id", ids);
@@ -136,7 +140,6 @@ export default function AdminOrders() {
     }
     setClearing(false);
     setShowClearModal(false);
-    fetchOrders();
   };
 
   const generateInvoice = async (order: Order) => {
@@ -145,50 +148,36 @@ export default function AdminOrders() {
     const orderItems = (items || []) as OrderItem[];
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-
     doc.setFillColor(13, 148, 136);
     doc.rect(0, 0, pageWidth, 40, "F");
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20); doc.setFont("helvetica", "bold");
     doc.text("Amilax Pharmaceuticals", 14, 18);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10); doc.setFont("helvetica", "normal");
     doc.text("Quality Medicines, Honestly Dispensed.", 14, 27);
     doc.text("amilaxpharma@gmail.com", 14, 34);
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24); doc.setFont("helvetica", "bold");
     doc.text("INVOICE", pageWidth - 14, 22, { align: "right" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10); doc.setFont("helvetica", "normal");
     doc.text(`#${order.id.slice(0, 8).toUpperCase()}`, pageWidth - 14, 31, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Bill To:", 14, 55);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Bill To:", 14, 55);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
     doc.text(order.full_name, 14, 63);
     if (order.phone) doc.text(`Phone: ${order.phone}`, 14, 70);
     if (order.email) doc.text(`Email: ${order.email}`, 14, 77);
     if (order.delivery_address) doc.text(`Address: ${order.delivery_address}`, 14, 84);
-    doc.setFont("helvetica", "bold");
-    doc.text("Invoice Date:", pageWidth - 70, 55);
+    doc.setFont("helvetica", "bold"); doc.text("Invoice Date:", pageWidth - 70, 55);
     doc.setFont("helvetica", "normal");
     doc.text(new Date(order.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" }), pageWidth - 14, 55, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.text("Status:", pageWidth - 70, 63);
-    doc.setFont("helvetica", "normal");
-    doc.text(order.status.toUpperCase(), pageWidth - 14, 63, { align: "right" });
+    doc.setFont("helvetica", "bold"); doc.text("Status:", pageWidth - 70, 63);
+    doc.setFont("helvetica", "normal"); doc.text(order.status.toUpperCase(), pageWidth - 14, 63, { align: "right" });
     if (order.notes) {
-      doc.setFont("helvetica", "bold");
-      doc.text("Payment:", pageWidth - 70, 71);
+      doc.setFont("helvetica", "bold"); doc.text("Payment:", pageWidth - 70, 71);
       doc.setFont("helvetica", "normal");
       doc.text(order.notes.replace("Payment method: ", "").toUpperCase(), pageWidth - 14, 71, { align: "right" });
     }
-    doc.setDrawColor(13, 148, 136);
-    doc.setLineWidth(0.5);
-    doc.line(14, 93, pageWidth - 14, 93);
+    doc.setDrawColor(13, 148, 136); doc.setLineWidth(0.5); doc.line(14, 93, pageWidth - 14, 93);
     autoTable(doc, {
       startY: 98,
       head: [["#", "Product", "Qty", "Unit Price (KES)", "Total (KES)"]],
@@ -199,21 +188,13 @@ export default function AdminOrders() {
       columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 80 }, 2: { cellWidth: 20, halign: "center" }, 3: { cellWidth: 35, halign: "right" }, 4: { cellWidth: 35, halign: "right" } },
     });
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFillColor(245, 250, 250);
-    doc.rect(pageWidth - 80, finalY - 5, 66, 16, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("TOTAL:", pageWidth - 70, finalY + 5);
-    doc.setTextColor(13, 148, 136);
-    doc.text(`KES ${order.total_amount?.toLocaleString()}`, pageWidth - 14, finalY + 5, { align: "right" });
-    doc.setTextColor(150, 150, 150);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFillColor(245, 250, 250); doc.rect(pageWidth - 80, finalY - 5, 66, 16, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("TOTAL:", pageWidth - 70, finalY + 5);
+    doc.setTextColor(13, 148, 136); doc.text(`KES ${order.total_amount?.toLocaleString()}`, pageWidth - 14, finalY + 5, { align: "right" });
+    doc.setTextColor(150, 150, 150); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
     doc.text("Thank you for choosing Amilax Pharmaceuticals.", pageWidth / 2, finalY + 30, { align: "center" });
     doc.text("This is a computer-generated invoice and does not require a signature.", pageWidth / 2, finalY + 37, { align: "center" });
     doc.save(`Amilax-Invoice-${order.full_name.replace(/\s+/g, "-")}-${order.id.slice(0, 8)}.pdf`);
-    
-    // Sync customer profile after invoice
     await syncCustomer(order);
     setGeneratingInvoice(null);
   };
@@ -224,12 +205,20 @@ export default function AdminOrders() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* New order alert */}
+      {newOrderAlert && (
+        <div className="fixed top-4 right-4 z-50 bg-teal-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-bounce">
+          🛒 <span className="font-semibold">New order received!</span>
+        </div>
+      )}
+
       {/* Nav */}
       <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/admin/dashboard")} className="text-gray-500 hover:text-teal-600 text-sm">← Dashboard</button>
           <span className="text-gray-300">|</span>
           <span className="font-semibold text-gray-800">Orders</span>
+          <span className="text-xs bg-teal-100 text-teal-600 px-2 py-0.5 rounded-full font-medium">🟢 Live</span>
         </div>
         <div className="flex gap-2">
           <button onClick={() => navigate("/admin/customers")}
@@ -261,7 +250,6 @@ export default function AdminOrders() {
             {filtered.length === 0 && <p className="text-gray-400 text-sm">No orders found.</p>}
             {filtered.map((order) => (
               <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-100">
-                {/* Order header */}
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -277,14 +265,11 @@ export default function AdminOrders() {
                   </div>
 
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>
-                      {order.status}
-                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>{order.status}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TRACKING_COLORS[order.tracking_status || "processing"]}`}>
                       {TRACKING_STEPS.find(s => s.key === (order.tracking_status || "processing"))?.emoji}{" "}
                       {TRACKING_STEPS.find(s => s.key === (order.tracking_status || "processing"))?.label}
                     </span>
-
                     <select value={order.status} onChange={(e) => { updateStatus(order.id, e.target.value); syncCustomer(order); }}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500">
                       <option value="pending">Pending</option>
@@ -292,12 +277,10 @@ export default function AdminOrders() {
                       <option value="delivered">Delivered</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
-
                     <button onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
                       className="text-xs border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
                       {expandedOrder === order.id ? "Hide Tracking ▲" : "Update Tracking ▼"}
                     </button>
-
                     <button onClick={() => generateInvoice(order)} disabled={generatingInvoice === order.id}
                       className="text-xs border border-teal-200 text-teal-600 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition disabled:opacity-50 ml-auto">
                       {generatingInvoice === order.id ? "Generating..." : "🧾 Download Invoice"}
@@ -310,7 +293,6 @@ export default function AdminOrders() {
                 {expandedOrder === order.id && (
                   <div className="border-t px-5 py-4 bg-gray-50 rounded-b-xl">
                     <p className="text-xs font-semibold text-gray-600 mb-3">Delivery Tracking</p>
-                    {/* Progress bar */}
                     <div className="flex items-center gap-0 mb-4">
                       {TRACKING_STEPS.map((step, i) => {
                         const currentIdx = trackingStep(order);
@@ -322,27 +304,17 @@ export default function AdminOrders() {
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition ${isActive ? "bg-teal-600 text-white" : "bg-gray-200 text-gray-400"}`}>
                                 {step.emoji}
                               </div>
-                              <span className={`text-[10px] mt-1 font-medium ${isActive ? "text-teal-600" : "text-gray-400"}`}>
-                                {step.label}
-                              </span>
+                              <span className={`text-[10px] mt-1 font-medium ${isActive ? "text-teal-600" : "text-gray-400"}`}>{step.label}</span>
                             </div>
-                            {!isLast && (
-                              <div className={`flex-1 h-1 mx-1 mb-4 rounded ${i < currentIdx ? "bg-teal-500" : "bg-gray-200"}`} />
-                            )}
+                            {!isLast && <div className={`flex-1 h-1 mx-1 mb-4 rounded ${i < currentIdx ? "bg-teal-500" : "bg-gray-200"}`} />}
                           </div>
                         );
                       })}
                     </div>
-                    {/* Tracking buttons */}
                     <div className="flex gap-2 flex-wrap">
                       {TRACKING_STEPS.map(step => (
-                        <button key={step.key}
-                          onClick={() => updateTracking(order.id, step.key)}
-                          className={`text-xs px-3 py-1.5 rounded-lg border transition ${
-                            (order.tracking_status || "processing") === step.key
-                              ? "bg-teal-600 text-white border-teal-600"
-                              : "bg-white text-gray-600 hover:bg-gray-50"
-                          }`}>
+                        <button key={step.key} onClick={() => updateTracking(order.id, step.key)}
+                          className={`text-xs px-3 py-1.5 rounded-lg border transition ${(order.tracking_status || "processing") === step.key ? "bg-teal-600 text-white border-teal-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
                           {step.emoji} {step.label}
                         </button>
                       ))}

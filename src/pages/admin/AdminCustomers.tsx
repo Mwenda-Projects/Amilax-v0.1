@@ -34,6 +34,29 @@ export default function AdminCustomers() {
     };
     checkAuth();
     fetchCustomers();
+
+    // ── REALTIME SUBSCRIPTION ──
+    const channel = supabase
+      .channel("customers-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "customers" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setCustomers(prev =>
+              [...prev, payload.new as Customer].sort((a, b) => b.total_spent - a.total_spent)
+            );
+          } else if (payload.eventType === "UPDATE") {
+            setCustomers(prev =>
+              prev.map(c => c.id === (payload.new as Customer).id ? payload.new as Customer : c)
+                .sort((a, b) => b.total_spent - a.total_spent)
+            );
+          } else if (payload.eventType === "DELETE") {
+            setCustomers(prev => prev.filter(c => c.id !== (payload.old as Customer).id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchCustomers = async () => {
@@ -46,7 +69,7 @@ export default function AdminCustomers() {
   };
 
   const fetchOrderHistory = async (phone: string, customerId: string) => {
-    if (orderHistory[customerId]) return; // already loaded
+    if (orderHistory[customerId]) return;
     const { data } = await supabase
       .from("orders")
       .select("id, total_amount, status, created_at")
@@ -67,7 +90,6 @@ export default function AdminCustomers() {
   const adjustPoints = async (id: string, current: number, amount: number) => {
     const newPoints = Math.max(0, current + amount);
     await supabase.from("customers").update({ loyalty_points: newPoints }).eq("id", id);
-    fetchCustomers();
   };
 
   const filtered = customers.filter(c =>
@@ -83,10 +105,8 @@ export default function AdminCustomers() {
   };
 
   const STATUS_COLORS: Record<string, string> = {
-    pending: "text-yellow-600",
-    confirmed: "text-blue-600",
-    delivered: "text-green-600",
-    cancelled: "text-red-500",
+    pending: "text-yellow-600", confirmed: "text-blue-600",
+    delivered: "text-green-600", cancelled: "text-red-500",
   };
 
   return (
@@ -94,20 +114,16 @@ export default function AdminCustomers() {
       {/* Nav */}
       <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/admin/orders")} className="text-gray-500 hover:text-teal-600 text-sm">
-            ← Orders
-          </button>
+          <button onClick={() => navigate("/admin/orders")} className="text-gray-500 hover:text-teal-600 text-sm">← Orders</button>
           <span className="text-gray-300">|</span>
           <span className="font-semibold text-gray-800">Customers</span>
+          <span className="text-xs bg-teal-100 text-teal-600 px-2 py-0.5 rounded-full font-medium">🟢 Live</span>
         </div>
-        <div className="text-sm text-gray-500">
-          {customers.length} total customers
-        </div>
+        <div className="text-sm text-gray-500">{customers.length} total customers</div>
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
-
-        {/* Stats row */}
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border p-4 text-center shadow-sm">
             <p className="text-xs text-gray-500 mb-1">Total Customers</p>
@@ -128,20 +144,16 @@ export default function AdminCustomers() {
         </div>
 
         {/* Search */}
-        <input
-          type="text"
-          placeholder="Search by name, phone or email..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-        />
+        <input type="text" placeholder="Search by name, phone or email..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white" />
 
         {/* Loyalty info */}
         <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 text-xs text-teal-700 mb-6 flex gap-6 flex-wrap">
           <span>🥉 Bronze: 0–199 pts</span>
           <span>🥈 Silver: 200–499 pts</span>
           <span>🥇 Gold: 500+ pts</span>
-          <span className="ml-auto">1 point earned per KES 100 spent</span>
+          <span className="ml-auto">1 point per KES 100 spent</span>
         </div>
 
         {loading ? (
@@ -159,7 +171,6 @@ export default function AdminCustomers() {
                 <div key={customer.id} className="bg-white rounded-xl border border-gray-100 shadow-sm">
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
-                      {/* Customer info */}
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm flex-shrink-0">
                           {customer.full_name?.charAt(0).toUpperCase()}
@@ -170,8 +181,6 @@ export default function AdminCustomers() {
                           <p className="text-xs text-gray-400">Since {new Date(customer.created_at).toLocaleDateString("en-KE", { month: "short", year: "numeric" })}</p>
                         </div>
                       </div>
-
-                      {/* Right side */}
                       <div className="text-right flex-shrink-0">
                         <p className="font-semibold text-teal-600 text-sm">KES {(customer.total_spent || 0).toLocaleString()}</p>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tier.color}`}>
@@ -180,7 +189,6 @@ export default function AdminCustomers() {
                       </div>
                     </div>
 
-                    {/* Loyalty points row */}
                     <div className="flex items-center gap-3 mt-4 flex-wrap">
                       <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
                         <span className="text-xs text-amber-700 font-medium">⭐ {customer.loyalty_points || 0} points</span>
@@ -206,7 +214,7 @@ export default function AdminCustomers() {
                       {!orderHistory[customer.id] ? (
                         <p className="text-xs text-gray-400">Loading...</p>
                       ) : orderHistory[customer.id].length === 0 ? (
-                        <p className="text-xs text-gray-400">No orders found for this phone number.</p>
+                        <p className="text-xs text-gray-400">No orders found.</p>
                       ) : (
                         <div className="space-y-2">
                           {orderHistory[customer.id].map(order => (
